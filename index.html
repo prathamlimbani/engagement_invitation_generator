@@ -1030,6 +1030,17 @@
             
             // Try to play immediately just in case
             audio.play().catch(e => console.log("Autoplay prevented"));
+
+            // Pause music when browser goes to background
+            let wasPlaying = false;
+            document.addEventListener("visibilitychange", () => {
+                if (document.hidden) {
+                    wasPlaying = !audio.paused;
+                    audio.pause();
+                } else if (wasPlaying) {
+                    audio.play().catch(e => console.log("Resume prevented"));
+                }
+            });
         }
 
         // ===== GUEST NAME LOGIC =====
