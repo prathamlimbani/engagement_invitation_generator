@@ -137,6 +137,24 @@
             transform: translateX(24px);
         }
 
+        /* ===== GUEST WELCOME OVERLAY & AUDIO ===== */
+        .audio-control {
+            position: fixed; bottom: 20px; left: 20px; z-index: 9998;
+            width: 45px; height: 45px;
+            background: rgba(212, 165, 83, 0.15);
+            border: 1px solid var(--gold);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; cursor: pointer;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+            color: var(--gold);
+        }
+        .audio-control:hover {
+            background: rgba(212, 165, 83, 0.3);
+            transform: scale(1.1);
+        }
+
         /* ===== PARTICLE CANVAS ===== */
         #particles {
             position: fixed; inset: 0; z-index: 0;
@@ -698,12 +716,18 @@
 </head>
 <body>
 
+    <!-- ===== AUDIO ELEMENT ===== -->
+    <audio id="bgMusic" loop src="bg-music.mp3"></audio>
+
+    <!-- ===== FLOATING AUDIO CONTROL ===== -->
+    <button id="audioToggle" class="audio-control" style="display:none;" onclick="toggleAudio()">🎵</button>
+
     <!-- ===== NAME ENTRY OVERLAY (shown when no guest param) ===== -->
     <div id="nameOverlay" style="display:none;">
         <div class="overlay-content">
             <div class="ornament">✦ ✦ ✦</div>
             <h2>Create Invitation</h2>
-            <p class="overlay-desc">Enter the guest's name to generate a personalized invitation link</p>
+            <p class="overlay-desc">Enter the guest's name, or leave blank to generate a general Master Link</p>
 
             <!-- Language Toggle -->
             <div class="lang-toggle">
@@ -825,7 +849,7 @@
             <div class="event-big-item reveal reveal-delay-2">
                 <span class="event-emoji">🕘</span>
                 <div class="event-label" data-en="Time" data-gu="સમય">Time</div>
-                <div class="event-value" data-en="9:00 AM Onwards" data-gu="સવારે ૯:૦૦ વાગ્યાથી">9:00 AM Onwards</div>
+                <div class="event-value" data-en="9:30 AM Onwards" data-gu="સવારે ૯:૩૦ વાગ્યાથી">9:30 AM Onwards</div>
             </div>
             <div class="divider reveal reveal-delay-2"><span class="icon">✦</span></div>
             <div class="event-big-item reveal reveal-delay-3">
@@ -939,45 +963,86 @@
             setLang(currentLang === 'en' ? 'gu' : 'en');
         }
 
+        // ===== DECODE INVITE DATA =====
+        function decodeInvite() {
+            const params = new URLSearchParams(window.location.search);
+            // New encoded format: ?i=base64(name|lang)
+            const encoded = params.get('i');
+            if (encoded) {
+                try {
+                    const decoded = atob(encoded);
+                    const parts = decoded.split('|');
+                    return { name: parts[0], lang: parts[1] || 'en' };
+                } catch(e) { return null; }
+            }
+            // Backward compat: old ?g= or ?guest= format
+            const guestName = params.get('g') || params.get('guest');
+            if (guestName) {
+                const lang = params.get('l') || params.get('lang') || 'en';
+                return { name: decodeURIComponent(guestName), lang: lang };
+            }
+            return null;
+        }
+
         function applyLanguage(lang) {
             document.querySelectorAll('[data-' + lang + ']').forEach(el => {
                 const val = el.getAttribute('data-' + lang);
                 if (val) el.innerHTML = val;
             });
+            document.documentElement.lang = lang === 'gu' ? 'gu' : 'en';
+        }
 
-            // Update guest name prefix
-            const params = new URLSearchParams(window.location.search);
-            const guestName = params.get('guest');
-            if (guestName) {
-                const display = document.getElementById('guestNameDisplay');
+        function setGuestName(name, lang) {
+            const display = document.getElementById('guestNameDisplay');
+            if (name) {
                 if (lang === 'gu') {
-                    display.textContent = 'પ્રિય ' + decodeURIComponent(guestName) + ' જી';
+                    display.textContent = 'પ્રિય ' + name + ' જી';
                 } else {
-                    display.textContent = 'Dear ' + decodeURIComponent(guestName) + ' Ji';
+                    display.textContent = 'Dear ' + name + ' Ji';
+                }
+            } else {
+                if (lang === 'gu') {
+                    display.textContent = 'પ્રિય સ્નેહીજનો'; // Dear loved ones
+                } else {
+                    display.textContent = 'Dear Family & Friends';
                 }
             }
+        }
 
-            // Update html lang
-            document.documentElement.lang = lang === 'gu' ? 'gu' : 'en';
+        // ===== AUDIO INIT =====
+        function initAudio() {
+            const audio = document.getElementById('bgMusic');
+            audio.volume = 0.4;
+            document.getElementById('audioToggle').style.display = 'flex';
+            
+            const forcePlay = () => {
+                if (audio.paused) {
+                    audio.play().catch(e => console.log("Still waiting for gesture"));
+                }
+                if (!audio.paused) {
+                    document.removeEventListener('click', forcePlay);
+                    document.removeEventListener('touchstart', forcePlay);
+                }
+            };
+            
+            document.addEventListener('click', forcePlay, { passive: true });
+            document.addEventListener('touchstart', forcePlay, { passive: true });
+            
+            // Try to play immediately just in case
+            audio.play().catch(e => console.log("Autoplay prevented"));
         }
 
         // ===== GUEST NAME LOGIC =====
         (function() {
-            const params = new URLSearchParams(window.location.search);
-            const guestName = params.get('guest');
-            const lang = params.get('lang') || 'en';
+            const invite = decodeInvite();
 
-            if (guestName) {
-                // Guest mode: show invitation
+            if (invite) {
+                // Guest mode: show invitation directly
                 document.getElementById('nameOverlay').style.display = 'none';
-                if (lang === 'gu') {
-                    document.getElementById('guestNameDisplay').textContent = 'પ્રિય ' + decodeURIComponent(guestName) + ' જી';
-                } else {
-                    document.getElementById('guestNameDisplay').textContent = 'Dear ' + decodeURIComponent(guestName) + ' Ji';
-                }
-                // Apply language
-                currentLang = lang;
-                applyLanguage(lang);
+                setGuestName(invite.name, invite.lang);
+                currentLang = invite.lang;
+                applyLanguage(invite.lang);
+                initAudio();
             } else {
                 // Creator mode: show name entry
                 document.getElementById('nameOverlay').style.display = 'flex';
@@ -991,18 +1056,37 @@
             }
         })();
 
+        function toggleAudio() {
+            const audio = document.getElementById('bgMusic');
+            const btn = document.getElementById('audioToggle');
+            if (audio.paused) {
+                audio.play();
+                btn.textContent = '🎵';
+            } else {
+                audio.pause();
+                btn.textContent = '🔇';
+            }
+        }
+
         function generateLink() {
             const name = document.getElementById('guestInput').value.trim();
-            if (!name) {
-                document.getElementById('guestInput').style.borderColor = '#e25555';
-                document.getElementById('guestInput').setAttribute('placeholder', 'Please enter a name...');
-                return;
-            }
+            // Encode name|lang as base64 → single clean param
+            const data = name + '|' + currentLang;
+            const encoded = btoa(data);
             const baseUrl = window.location.origin + window.location.pathname;
-            const link = baseUrl + '?guest=' + encodeURIComponent(name) + '&lang=' + currentLang;
+            const link = baseUrl + '?i=' + encoded;
             document.getElementById('generatedLink').value = link;
             document.getElementById('linkResult').style.display = 'block';
             document.getElementById('guestInput').style.borderColor = 'var(--gold)';
+            
+            const msgEl = document.querySelector('#linkResult p');
+            if (name) {
+                msgEl.textContent = 'Share this link:';
+                msgEl.style.color = 'var(--gold)';
+            } else {
+                msgEl.textContent = 'Share this MASTER link (No Name):';
+                msgEl.style.color = '#4ade80'; // Green to highlight it's a master link
+            }
         }
 
         function copyLink() {
@@ -1087,7 +1171,7 @@
 
         // ===== COUNTDOWN TIMER =====
         (function() {
-            const target = new Date('2026-08-16T09:00:00+05:30').getTime();
+            const target = new Date('2026-08-16T09:30:00+05:30').getTime();
             function update() {
                 const now = Date.now();
                 const diff = target - now;
