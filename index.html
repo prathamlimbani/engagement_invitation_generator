@@ -1047,18 +1047,29 @@
         // ===== AUTO SCROLL =====
         function initAutoScroll() {
             setTimeout(() => {
+                // Override CSS smooth scrolling to prevent stuttering/breaking on mobile
+                document.documentElement.style.scrollBehavior = 'auto';
+
                 let scrollInterval = setInterval(() => {
                     if ((window.innerHeight + window.scrollY) < document.body.offsetHeight) {
-                        window.scrollBy(0, 1);
+                        window.scrollBy(0, 2); // Faster: 2px instead of 1px
                     } else {
-                        clearInterval(scrollInterval);
+                        stopScroll();
                     }
-                }, 40);
+                }, 30); // Faster: 30ms instead of 40ms
 
-                const stopScroll = () => clearInterval(scrollInterval);
+                const stopScroll = () => {
+                    clearInterval(scrollInterval);
+                    document.documentElement.style.scrollBehavior = 'smooth';
+                    window.removeEventListener('wheel', stopScroll);
+                    window.removeEventListener('touchmove', stopScroll);
+                    window.removeEventListener('keydown', stopScroll);
+                };
+
+                // Use touchmove instead of touchstart so a simple tap doesn't stop it
                 window.addEventListener('wheel', stopScroll, { passive: true });
-                window.addEventListener('touchstart', stopScroll, { passive: true });
-                window.addEventListener('mousedown', stopScroll, { passive: true });
+                window.addEventListener('touchmove', stopScroll, { passive: true });
+                window.addEventListener('keydown', stopScroll, { passive: true });
             }, 2000);
         }
 
