@@ -1027,8 +1027,10 @@
             document.addEventListener('click', forcePlay, { passive: true });
             document.addEventListener('touchstart', forcePlay, { passive: true });
             
-            // Try to play immediately just in case
-            audio.play().catch(e => console.log("Autoplay prevented"));
+            // Try to play after 2 seconds instead of tapping
+            setTimeout(() => {
+                audio.play().catch(e => console.log("Autoplay prevented"));
+            }, 2000);
 
             // Pause music when browser goes to background
             let wasPlaying = false;
@@ -1042,6 +1044,24 @@
             });
         }
 
+        // ===== AUTO SCROLL =====
+        function initAutoScroll() {
+            setTimeout(() => {
+                let scrollInterval = setInterval(() => {
+                    if ((window.innerHeight + window.scrollY) < document.body.offsetHeight) {
+                        window.scrollBy(0, 1);
+                    } else {
+                        clearInterval(scrollInterval);
+                    }
+                }, 40);
+
+                const stopScroll = () => clearInterval(scrollInterval);
+                window.addEventListener('wheel', stopScroll, { passive: true });
+                window.addEventListener('touchstart', stopScroll, { passive: true });
+                window.addEventListener('mousedown', stopScroll, { passive: true });
+            }, 2000);
+        }
+
         // ===== GUEST NAME LOGIC =====
         (function() {
             const invite = decodeInvite();
@@ -1053,6 +1073,7 @@
                 currentLang = invite.lang;
                 applyLanguage(invite.lang);
                 initAudio();
+                initAutoScroll();
             } else {
                 // Creator mode: show name entry
                 document.getElementById('nameOverlay').style.display = 'flex';
